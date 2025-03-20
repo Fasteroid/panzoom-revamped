@@ -31,7 +31,7 @@
         "exactOptionalPropertyTypes": true,                  /* Interpret optional property types as written, rather than adding 'undefined'. */
         
         "target": "ES2022",
-        "module": "ES2022",
+        "module": "esnext",
         "lib": [
             "ES2022",
             "dom"

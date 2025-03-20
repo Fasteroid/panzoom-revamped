@@ -3,17 +3,14 @@
 
     <body>
         <div id="panzoomer">
-            <img src="https://cataas.com/cat">
+            <img id="cat" img src="https://cataas.com/cat">
         </div>
     </body>
 
     <head>
-        <script src="../dist/index.js" type="module"></script>
         <script type="module">
-            import { test } from "../dist/index.js";  // Adjust the path if necessary
-            test();
-
-            console.log( document.getElementById("yeet") )
+            import { createPanZoom } from "../dist/bundle.js";  // Adjust the path if necessary
+            createPanZoom( document.getElementById("cat") )
         </script>
 
         <style>
