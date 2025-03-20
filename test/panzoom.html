@@ -1,16 +1,39 @@
 <!DOCTYPE html>
 <html style="background-color: #2f3234; color: white">
 
-<head>
-    <script src="../dist/index.js" type="module"></script>
-    <script type="module">
-        import { test } from "../dist/index.js";  // Adjust the path if necessary
-        test();
-    </script>
-</head>
+    <body>
+        <div id="panzoomer">
+            <img src="https://cataas.com/cat">
+        </div>
+    </body>
 
-<body>
-    asdf
-</body>
+    <head>
+        <script src="../dist/index.js" type="module"></script>
+        <script type="module">
+            import { test } from "../dist/index.js";  // Adjust the path if necessary
+            test();
+
+            console.log( document.getElementById("yeet") )
+        </script>
+
+        <style>
+            #panzoomer {
+                width: 100vw;
+                height: 100vh;
+                max-width: 100vw;
+                max-height: 100vh;
+                overflow: hidden;
+
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                
+            }
+
+            body {
+                margin: 0
+            }
+        </style>
+    </head>
 
 </html>
