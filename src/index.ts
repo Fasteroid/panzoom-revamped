@@ -1,4 +1,3 @@
-
 /**
  * Throws an error.
  * Pass additional arguments for context where applicable.
@@ -57,6 +56,24 @@ export class Panzoom {
         }
     }
 
+    /** Converts a document-space position to a container-space position */
+    public docToContainer(pos: ClientPos): ClientPos {
+        const bounds = this.container.getBoundingClientRect();
+            
+        return {
+            clientX: pos.clientX - bounds.x - bounds.width / 2,
+            clientY: pos.clientY - bounds.y - bounds.height / 2
+        }
+    }
+
+    /** Converts a container-space position to a child-space position (no scaling) */
+    public containerToChild(pos: ClientPos): ClientPos {
+        return {
+            clientX: pos.clientX - this._transform.x,
+            clientY: pos.clientY - this._transform.y
+        }
+    }
+
     /**
      * What scrolling one wheel click towards you multiplies the zoom factor by.
      */
@@ -77,7 +94,7 @@ export class Panzoom {
         this.container = element.parentElement ?? fail("The element needs a valid parent to be panzoomable.", element)
 
         // prevent drag handlers on the element itself from firing
-        this.element.addEventListener('selectstart', cancel)
+        this.container.addEventListener('selectstart', cancel)
         this.element.addEventListener('dragstart', cancel)
 
         this.container.addEventListener('mousedown', (e) => {
@@ -88,8 +105,20 @@ export class Panzoom {
 
             const factor = e.deltaY < 0 ? this.wheelZoomRate : 1 / this.wheelZoomRate
 
+
+            let oldZoomPoint = this.containerToChild ( this.docToContainer(e) );
+            let newZoomPoint = {
+                clientX: oldZoomPoint.clientX * factor,
+                clientY: oldZoomPoint.clientY * factor
+            }
+
+            let dx = newZoomPoint.clientX - oldZoomPoint.clientX;
+            let dy = newZoomPoint.clientY - oldZoomPoint.clientY;
+
             this.editTransform( (t) => {
                 t.zoom *= factor
+                t.x -= dx
+                t.y -= dy
             } )
 
         })
