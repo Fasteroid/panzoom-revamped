@@ -1,10 +1,31 @@
 # panzoom-revamped
-###### an extension of [anvaka/panzoom](https://github.com/anvaka/panzoom)
+###### based on [anvaka's panzoom](https://github.com/anvaka/panzoom)
 
-Extensible, mobile-friendly pan and zoom framework (supports DOM and SVG)
+*Actually* extensible, mobile-friendly (soon) pan & zoom framework.<br>
+Now with 20% less jank!
 
-## Usage and stuff
-TODO
+## Usage Example
+```html
+<style>
+    .flexbox-centerer {
+        box-sizing: border-box;
+        overflow: hidden;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+
+<div class="flexbox-centerer">
+    <img id="cat" src="https://cataas.com/cat">
+</div>
+
+<script type="module">
+    import { Panzoom } from "../dist/index.js"; // or however else you'd import in your environment
+    let pz = new Panzoom( document.getElementById("cat") );
+</script>
+```
 
 ## License
 
