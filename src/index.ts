@@ -14,9 +14,14 @@ function cancel(e: Event){
 }
 
 type PanzoomTransform = {
-    x: number;
-    y: number;
-    zoom: number;
+    x: number
+    y: number
+    zoom: number
+}
+
+type ClientPos = {
+    clientX: number
+    clientY: number
 }
 
 export class Panzoom {
@@ -35,11 +40,23 @@ export class Panzoom {
     /**
      * Modifies the internal transform then updates it on the panzoom element
      */
-    public transform( change: (t: PanzoomTransform) => void ){
+    public editTransform( change: (t: PanzoomTransform) => void ){
         const t = this._transform;
         change(t);
         this.element.style.transform = `matrix(${t.zoom}, 0, 0, ${t.zoom}, ${t.x}, ${t.y})`
     }
+
+    /**
+     * Gets a copy of the internal transform
+     */
+    public getTransform(): PanzoomTransform {
+        return {
+            x: this._transform.x,
+            y: this._transform.y,
+            zoom: this._transform.zoom
+        }
+    }
+    
 
     /**
      * The container for the panzoom element
@@ -66,21 +83,41 @@ export class Panzoom {
         // this.element.addEventListener('mousedown', () => { console.log("clicked the cat") })
     }
 
-    protected startMousePan(e: MouseEvent){        
+
+    private lastMousePos: ClientPos | undefined;
+    private isMousePanActive: boolean = false;
+
+    protected startMousePan(e: MouseEvent){
+
+        if( this.isMousePanActive ) return;
+        this.isMousePanActive = true;
+
+        this.lastMousePos = e;
         const mousePanCallback = (e: MouseEvent) => {
+            const lastPos = this.lastMousePos ?? e;
+
+            const dx = e.clientX - lastPos.clientX;
+            const dy = e.clientY - lastPos.clientY;
+
             const bounds = this.container.getBoundingClientRect();
             
-            this.transform( (t) => {
-                t.x = e.clientX - bounds.x - bounds.width / 2
-                t.y = e.clientY - bounds.y - bounds.height / 2
+            this.editTransform( (t) => {
+                t.x += dx
+                t.y += dy
             } )
+
+            this.lastMousePos = e;
         }
 
         this.container.addEventListener('mousemove', mousePanCallback);
 
-        document.addEventListener('mouseup', () => {
+        const mousePanEnd = () => {
             this.container.removeEventListener('mousemove', mousePanCallback);
-        })
+            document.removeEventListener('mouseup', mousePanEnd)
+            this.isMousePanActive = false;
+        }
+
+        document.addEventListener('mouseup', mousePanEnd)
     }
 
 }

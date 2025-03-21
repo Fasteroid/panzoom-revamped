@@ -14,10 +14,10 @@
         <script type="module">
             import { Panzoom } from "../dist/index.js";  // Adjust the path if necessary
             let p = new Panzoom( document.getElementById("cat") )
-            p.transform( (tr) => {
+            p.editTransform( (tr) => {
                 tr.x = 0
                 tr.y = 0
-                tr.zoom = 1
+                tr.zoom = 2
             })
         </script>
 
