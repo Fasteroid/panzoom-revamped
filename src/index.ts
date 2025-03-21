@@ -135,14 +135,11 @@ export class Panzoom {
         // this.element.addEventListener('mousedown', () => { console.log("clicked the cat") })
     }
 
-
-    private lastMousePos?: ClientPos;
-    private isMousePanActive: boolean = false;
+    private lastMousePos: ClientPos | undefined;
 
     protected startMousePan(e: MouseEvent){
 
-        if( this.isMousePanActive ) return;
-        this.isMousePanActive = true;
+        if( this.lastMousePos ) return;
 
         this.lastMousePos = e;
         const mousePanCallback = (e: MouseEvent) => {
@@ -164,7 +161,7 @@ export class Panzoom {
         const mousePanEnd = () => {
             this.container.removeEventListener('mousemove', mousePanCallback);
             document.removeEventListener('mouseup', mousePanEnd)
-            this.isMousePanActive = false;
+            this.lastMousePos = undefined;
         }
 
         document.addEventListener('mouseup', mousePanEnd)
