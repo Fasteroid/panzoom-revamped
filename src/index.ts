@@ -105,24 +105,32 @@ export class Panzoom {
 
             const factor = e.deltaY < 0 ? this.wheelZoomRate : 1 / this.wheelZoomRate
 
-
             let oldZoomPoint = this.containerToChild ( this.docToContainer(e) );
-            let newZoomPoint = {
-                clientX: oldZoomPoint.clientX * factor,
-                clientY: oldZoomPoint.clientY * factor
-            }
 
-            let dx = newZoomPoint.clientX - oldZoomPoint.clientX;
-            let dy = newZoomPoint.clientY - oldZoomPoint.clientY;
+            /*
+                // if we were to scale as-is, where would the mouse end up?
+                // subtract how it moves from the final transformation to keep it in the same place relative to the panzoom child.
+
+                let newZoomPoint = {
+                    clientX: oldZoomPoint.clientX * factor,
+                    clientY: oldZoomPoint.clientY * factor
+                }
+
+                let err_x = newZoomPoint.clientX - oldZoomPoint.clientX;
+                let err_y = newZoomPoint.clientY - oldZoomPoint.clientY;
+            */
+
+            // through a little algebra, the above becomes the following:
+            let err_x = oldZoomPoint.clientX * (factor - 1);
+            let err_y = oldZoomPoint.clientY * (factor - 1);
 
             this.editTransform( (t) => {
                 t.zoom *= factor
-                t.x -= dx
-                t.y -= dy
+                t.x -= err_x
+                t.y -= err_y
             } )
 
         })
-
 
         // this.element.addEventListener('mousedown', () => { console.log("clicked the cat") })
     }
