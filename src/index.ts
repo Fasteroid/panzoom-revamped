@@ -56,6 +56,11 @@ export class Panzoom {
             zoom: this._transform.zoom
         }
     }
+
+    /**
+     * What scrolling one wheel click towards you multiplies the zoom factor by.
+     */
+    public wheelZoomRate: number = 1.1;
     
 
     /**
@@ -79,6 +84,16 @@ export class Panzoom {
             this.startMousePan(e);
         });
 
+        this.container.addEventListener('wheel', (e: WheelEvent) => {
+
+            const factor = e.deltaY < 0 ? this.wheelZoomRate : 1 / this.wheelZoomRate
+
+            this.editTransform( (t) => {
+                t.zoom *= factor
+            } )
+
+        })
+
 
         // this.element.addEventListener('mousedown', () => { console.log("clicked the cat") })
     }
@@ -98,8 +113,6 @@ export class Panzoom {
 
             const dx = e.clientX - lastPos.clientX;
             const dy = e.clientY - lastPos.clientY;
-
-            const bounds = this.container.getBoundingClientRect();
             
             this.editTransform( (t) => {
                 t.x += dx
