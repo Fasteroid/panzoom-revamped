@@ -136,7 +136,7 @@ export class Panzoom {
     }
 
 
-    private lastMousePos: ClientPos | undefined;
+    private lastMousePos?: ClientPos;
     private isMousePanActive: boolean = false;
 
     protected startMousePan(e: MouseEvent){
