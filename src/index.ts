@@ -93,9 +93,9 @@ export class Panzoom {
     constructor(protected element: HTMLElement){
         this.container = element.parentElement ?? fail("The element needs a valid parent to be panzoomable.", element)
 
-        // prevent drag handlers on the element itself from firing
+        // drag and select will fuck us up, so prevent them
         this.container.addEventListener('selectstart', cancel)
-        this.element.addEventListener('dragstart', cancel)
+        this.container.addEventListener('dragstart', cancel)
 
         this.container.addEventListener('mousedown', (e) => {
             this.startMousePan(e);
