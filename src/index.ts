@@ -46,6 +46,24 @@ function average(touches: ArrayLike<ClientPos>): ClientPos {
     return pos;
 }
 
+function distance(a: ClientPos, b: ClientPos){
+    return Math.sqrt( (a.clientX - b.clientX)**2 + (a.clientY - b.clientY)**2 );
+}
+
+/**
+ * Passing the midpoint and two points will yield the same result as normal distance,
+ * so this is an extension of the usual panzoom approach that should work with any number
+ * of contact points.
+ */
+function totalDistance(center: ClientPos, others: ArrayLike<ClientPos>){
+    let dist = 0;
+    for (let i = 0; i < others.length; i++) {
+        const pos = others[i];
+        dist += distance(pos, center);
+    }
+    return dist;
+}
+
 export class Panzoom {
 
 
@@ -194,24 +212,36 @@ export class Panzoom {
         document.addEventListener('mouseup', mousePanEnd)
     }
 
-    private lastTouchAverage: ClientPos | undefined;
-    private lastTouchCount: number | undefined;
+    private lastTouchAverage:  ClientPos | undefined;
+    private lastTouchCount:    number | undefined;
+    private lastTouchDistance: number | undefined;
 
     protected startTouchPanzoom(e: TouchEvent) {
 
         if( this.lastTouchAverage ) return;
 
-        this.lastTouchAverage = average( e.touches );
-        this.lastTouchCount   = e.touches.length;
+        this.lastTouchAverage  = average( e.touches );
+        this.lastTouchCount    = e.touches.length;
+        this.lastTouchDistance = totalDistance( this.lastTouchAverage, e.touches )
 
         const touchPanzoomCallback = (e: TouchEvent) => {
             e.preventDefault();
 
-            const thisTouchAverage = average(e.touches);
+            const thisTouchCount    = e.touches.length;
+            const thisTouchAverage  = average(e.touches);
+            const thisTouchDistance = totalDistance( thisTouchAverage, e.touches );
 
-            if( this.lastTouchCount === e.touches.length ){ // ignore one frame if another point connects to prevent discontinuous jump
+            if( this.lastTouchCount === thisTouchCount ){ // ignore one frame if another point connects to prevent discontinuous jump
 
                 const lastTouchAverage = this.lastTouchAverage ?? thisTouchAverage;
+                const lastTouchDistance = this.lastTouchDistance ?? thisTouchDistance;
+
+                let factor = thisTouchDistance / lastTouchDistance;
+                if( factor !== factor ){ // did we get NaN?
+                    factor = 1; // pretend it's fine
+                }
+
+                console.log(factor)
 
                 const dx = thisTouchAverage.clientX - lastTouchAverage.clientX;
                 const dy = thisTouchAverage.clientY - lastTouchAverage.clientY;
@@ -219,12 +249,14 @@ export class Panzoom {
                 this.editTransform( (t) => {
                     t.x += dx
                     t.y += dy
+                    t.zoom *= factor
                 } )
 
             }
 
-            this.lastTouchAverage = thisTouchAverage;
-            this.lastTouchCount   = e.touches.length;
+            this.lastTouchAverage  = thisTouchAverage;
+            this.lastTouchCount    = thisTouchCount;
+            this.lastTouchDistance = thisTouchDistance
         }
 
         this.container.addEventListener('touchmove', touchPanzoomCallback);
