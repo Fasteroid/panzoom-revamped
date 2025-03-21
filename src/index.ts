@@ -241,8 +241,6 @@ export class Panzoom {
                     factor = 1; // pretend it's fine
                 }
 
-                console.log(factor)
-
                 const dx = thisTouchAverage.clientX - lastTouchAverage.clientX;
                 const dy = thisTouchAverage.clientY - lastTouchAverage.clientY;
                 
