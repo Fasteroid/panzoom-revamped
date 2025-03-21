@@ -2,8 +2,10 @@
 <html style="background-color: #2f3234; color: white">
 
     <body>
-        <div id="panzoomer">
-            <img id="cat" src="https://cataas.com/cat">
+        <div class="cursed">
+            <div id="panzoomer">
+                <img id="cat" src="https://fasteroid.github.io/assets/expression2/raytracer/skybase_big.png" (click)="console.log('meow')">
+            </div>
         </div>
     </body>
 
@@ -12,14 +14,23 @@
         <script type="module">
             import { Panzoom } from "../dist/index.js";  // Adjust the path if necessary
             let p = new Panzoom( document.getElementById("cat") )
+            p.transform( (tr) => {
+                tr.x = 0
+                tr.y = 0
+                tr.zoom = 1
+            })
         </script>
 
         <style>
+            .cursed {
+                padding-left: 40px;
+                max-width: 100dvw;
+                height: 100dvh;
+            }
+
             #panzoomer {
-                width: 100vw;
-                height: 100vh;
-                max-width: 100vw;
-                max-height: 100vh;
+                border: 1px solid white;
+                box-sizing: border-box;
                 overflow: hidden;
 
                 display: flex;
