@@ -23,6 +23,29 @@ type ClientPos = {
     clientY: number
 }
 
+interface ArrayLike<T> {
+    readonly length: number
+    [index: number]: T;
+}
+
+function average(touches: ArrayLike<ClientPos>): ClientPos {
+    const pos: ClientPos = {
+        clientX: 0,
+        clientY: 0
+    }
+
+    for (let i = 0; i < touches.length; i++) {
+        const touch = touches[i];
+        pos.clientX += touch.clientX;
+        pos.clientY += touch.clientY;
+    }
+
+    pos.clientX /= touches.length;
+    pos.clientY /= touches.length;
+
+    return pos;
+}
+
 export class Panzoom {
 
 
@@ -101,6 +124,10 @@ export class Panzoom {
             this.startMousePan(e);
         });
 
+        this.container.addEventListener('touchstart', (e) => {
+            this.startTouchPanzoom(e);
+        })
+
         this.container.addEventListener('wheel', (e: WheelEvent) => {
 
             const factor = e.deltaY < 0 ? this.wheelZoomRate : 1 / this.wheelZoomRate
@@ -165,6 +192,51 @@ export class Panzoom {
         }
 
         document.addEventListener('mouseup', mousePanEnd)
+    }
+
+    private lastTouchAverage: ClientPos | undefined;
+    private lastTouchCount: number | undefined;
+
+    protected startTouchPanzoom(e: TouchEvent) {
+
+        if( this.lastTouchAverage ) return;
+
+        this.lastTouchAverage = average( e.touches );
+        this.lastTouchCount   = e.touches.length;
+
+        const touchPanzoomCallback = (e: TouchEvent) => {
+            e.preventDefault();
+
+            const thisTouchAverage = average(e.touches);
+
+            if( this.lastTouchCount === e.touches.length ){ // ignore one frame if another point connects to prevent discontinuous jump
+
+                const lastTouchAverage = this.lastTouchAverage ?? thisTouchAverage;
+
+                const dx = thisTouchAverage.clientX - lastTouchAverage.clientX;
+                const dy = thisTouchAverage.clientY - lastTouchAverage.clientY;
+                
+                this.editTransform( (t) => {
+                    t.x += dx
+                    t.y += dy
+                } )
+
+            }
+
+            this.lastTouchAverage = thisTouchAverage;
+            this.lastTouchCount   = e.touches.length;
+        }
+
+        this.container.addEventListener('touchmove', touchPanzoomCallback);
+
+        const touchPanzoomEnd = (e: TouchEvent) => {
+            if( e.touches.length !== 0 ) return;
+            this.container.removeEventListener('touchmove', touchPanzoomCallback);
+            document.removeEventListener('touchend', touchPanzoomEnd)
+            this.lastTouchAverage = undefined;
+        }
+
+        document.addEventListener('touchend', touchPanzoomEnd)
     }
 
 }
