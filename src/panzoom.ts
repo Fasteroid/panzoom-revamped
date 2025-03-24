@@ -22,9 +22,10 @@ export class Panzoom {
     public minZoom: number = 1 / this.maxZoom;
 
     /**
-     * How far to allow the panzoom element to overflow
+     * If set, ensures the user cannot lose the panzoomed element by dragging it completely outside the viewport,
+     * with at least this many px of it remaining as a partial border.
      */
-    public overflow: number = 0.5;
+    public minVisible?: number | undefined;
 
     /**
      * The container for the panzoom element
@@ -61,6 +62,58 @@ export class Panzoom {
             zoom: this._transform.zoom
         }
     }
+
+    /**
+     * Like {@link editTransform}, but respects viewport constraints 
+     * @param change - how to modify the internal transform
+     */
+    public editTransformConstrained( change: (t: PanzoomTransform) => void ){
+
+        if( !this.minVisible ) return;
+
+        const changed = this.getTransform();
+        change(changed);
+
+        let x = changed.x;
+        let y = changed.y;
+        
+        const childRect    = this.element.getBoundingClientRect();
+        const viewportRect = this.container.getBoundingClientRect();
+
+        const factor  = changed.zoom / this._transform.zoom;
+
+        const newWidth = childRect.width * factor / 2;
+        const newHeight = childRect.height * factor / 2;
+
+
+        const left = x + viewportRect.width / 2 + newWidth;
+        if( left < this.minVisible ) {
+            x += ( this.minVisible - left )
+        }
+
+        const top = y + viewportRect.height / 2 + newHeight;
+        if( top < this.minVisible ) {
+            y += ( this.minVisible - top )
+        }
+
+        const right = -x + viewportRect.width / 2 + newWidth;
+        if( right < this.minVisible ) {
+            x += ( right - this.minVisible )
+        }
+
+        const bottom = -y + viewportRect.height / 2 + newHeight;
+        if( bottom < this.minVisible ) {
+            y += ( bottom - this.minVisible )
+        }
+
+        this.editTransform((t) => {
+            t.x = x
+            t.y = y
+            t.zoom = changed.zoom
+        });
+        
+    }
+
 
     private anim?: PanzoomAnimation
 
@@ -101,21 +154,21 @@ export class Panzoom {
         return ret;
     }
 
-    /** Converts a document-space position to a container-space position */
-    public docToContainer(pos: ClientPos): ClientPos {
+    /** Converts a document-space position to a child-space position (no scaling) */
+    public docToChild(pos: ClientPos): ClientPos {
         const bounds = this.container.getBoundingClientRect();
             
         return {
-            clientX: pos.clientX - bounds.x - bounds.width / 2,
-            clientY: pos.clientY - bounds.y - bounds.height / 2
+            clientX: pos.clientX - bounds.x - bounds.width / 2 - this._transform.x, 
+            clientY: pos.clientY - bounds.y - bounds.height / 2 - this._transform.y
         }
     }
 
-    /** Converts a container-space position to a child-space position (no scaling) */
-    public containerToChild(pos: ClientPos): ClientPos {
+    public childToDoc(pos: ClientPos): ClientPos {
+        const bounds = this.container.getBoundingClientRect();
         return {
-            clientX: pos.clientX - this._transform.x,
-            clientY: pos.clientY - this._transform.y
+            clientX: pos.clientX + bounds.x + bounds.width / 2 + this._transform.x,
+            clientY: pos.clientY + bounds.y + bounds.height / 2 + this._transform.y
         }
     }
 
@@ -145,9 +198,9 @@ export class Panzoom {
 
         this.container.addEventListener('wheel', (e: WheelEvent) => {
 
-            const factor = this.clampZoomChangeMul( e.deltaY < 0 ? this.wheelZoomRate : 1 / this.wheelZoomRate);
+            const factor = this.clampZoomChangeMul( e.deltaY < 0 ? this.wheelZoomRate : 1 / this.wheelZoomRate );
 
-            let oldZoomPoint = this.containerToChild ( this.docToContainer(e) );
+            let oldZoomPoint = this.docToChild(e);
 
             /*
                 // if we were to scale as-is, where would the mouse end up?
@@ -166,7 +219,7 @@ export class Panzoom {
             let err_x = oldZoomPoint.clientX * (factor - 1);
             let err_y = oldZoomPoint.clientY * (factor - 1);
 
-            this.editTransform( (t) => {
+            this.editTransformConstrained( (t) => {
                 t.zoom *= factor
                 t.x -= err_x
                 t.y -= err_y
@@ -190,7 +243,7 @@ export class Panzoom {
             const dx = e.clientX - lastPos.clientX;
             const dy = e.clientY - lastPos.clientY;
             
-            this.editTransform( (t) => {
+            this.editTransformConstrained( (t) => {
                 t.x += dx
                 t.y += dy
             } )
@@ -198,10 +251,10 @@ export class Panzoom {
             this.lastMousePos = e;
         }
 
-        this.container.addEventListener('mousemove', mousePanCallback);
+        document.addEventListener('mousemove', mousePanCallback);
 
         const mousePanEnd = () => {
-            this.container.removeEventListener('mousemove', mousePanCallback);
+            document.removeEventListener('mousemove', mousePanCallback);
             document.removeEventListener('mouseup', mousePanEnd)
             this.lastMousePos = undefined;
         }
@@ -242,7 +295,7 @@ export class Panzoom {
                 const dx = thisTouchAverage.clientX - lastTouchAverage.clientX;
                 const dy = thisTouchAverage.clientY - lastTouchAverage.clientY;
                 
-                this.editTransform( (t) => {
+                this.editTransformConstrained( (t) => {
                     t.x += dx
                     t.y += dy
                     t.zoom *= factor
