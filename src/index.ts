@@ -1,7 +1,3 @@
-/**
- * Throws an error.
- * Pass additional arguments for context where applicable.
- */
 function fail(msg: string, ...objects: any[]): never {
     console.error(...objects)
     throw new Error(msg);
@@ -10,12 +6,6 @@ function fail(msg: string, ...objects: any[]): never {
 function cancel(e: Event){
     e.preventDefault();
     e.stopPropagation();
-}
-
-type PanzoomTransform = {
-    x: number
-    y: number
-    zoom: number
 }
 
 type ClientPos = {
@@ -51,7 +41,7 @@ function distance(a: ClientPos, b: ClientPos){
 }
 
 /**
- * Passing the midpoint and two points will yield the same result as normal distance,
+ * Passing the midpoint and two points will yield the same result as distance between those two,
  * so this is an extension of the usual panzoom approach that should work with any number
  * of contact points.
  */
@@ -64,7 +54,124 @@ function totalDistance(center: ClientPos, others: ArrayLike<ClientPos>){
     return dist;
 }
 
+type Public<T> = { [K in keyof T]: T[K] }
+
+
+
+
+type PanzoomTransform = {
+    x: number
+    y: number
+    zoom: number
+}
+
+/**
+ * Gets the transformation matrix for a {@linkcode PanzoomTransform}
+ */
+function getMatrix(t: PanzoomTransform) {
+    return `matrix(${t.zoom}, 0, 0, ${t.zoom}, ${t.x}, ${t.y})`
+}
+
+class PanzoomMatrixParseError extends Error {
+    constructor(public readonly matrix: string){
+        super(`failed to parse panzoom matrix: ${matrix}`);
+    }
+}
+
+const MATRIX_PARSE_REGEX = /matrix\((-?\d+(?:\.\d+)?), 0, 0, (-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?)\)/
+function parseMatrix(s: string): PanzoomTransform {
+    const match = MATRIX_PARSE_REGEX.exec(s);
+    if( match === null ) throw new PanzoomMatrixParseError(s);
+
+    const parsed: PanzoomTransform = {
+        x:    parseFloat( match[3] ),
+        y:    parseFloat( match[4] ),
+        zoom: parseFloat( match[1] ),
+    }
+
+    // make sure they were valid numbers
+    if(
+        (parsed.x !== parsed.x) ||
+        (parsed.y !== parsed.y) ||
+        (parsed.zoom !== parsed.zoom)
+    ){
+        throw new PanzoomMatrixParseError(s);;
+    }
+
+    return parsed;
+}
+
+type PanzoomAnimation = Pick<_PanzoomAnimation, 
+    'addEventListener'    |
+    'removeEventListener' |
+    'cancel'              |
+    'finish'              |
+    'interrupt'           |
+    'done'
+>
+
+class _PanzoomAnimation extends Animation {
+    
+    /** Extends a normal animation to a panzoom animation */
+    public static extend(anim: Animation, pz: Panzoom) : _PanzoomAnimation {
+        let ret: _PanzoomAnimation = Object.setPrototypeOf(anim, _PanzoomAnimation.prototype);
+        ret._pz = pz;
+        return ret;
+    }
+
+    // don't use
+    private constructor(_: Panzoom){
+        super();
+        this._pz = _;
+    }
+
+    private _pz: Panzoom;
+
+    public get done() { return this.playState !== 'running' }
+
+    // just in case someone tries to call this from JavaScript land...
+    public override pause(){
+        throw new Error("Can't pause panzoom animation (try .interrupt() instead)");
+    }
+
+    /** Immediately cancels the animation and reverts the new transformation */
+    public override cancel() {
+        if( this.done ) throw new Error("The panzoom animation is over")
+        super.cancel();
+    }
+
+    /** Immediately finishes the animation and commits the new transformation */
+    public override finish() {
+        if( this.done ) throw new Error("The panzoom animation is over")
+        super.finish();
+    }
+
+    /** Cancels the animation where it is and commits the current transformation */
+    public async interrupt() {
+        return new Promise<void>( (resolve) => {
+            if( this.done ) throw new Error("The panzoom animation is over")
+
+            const transform = parseMatrix( getComputedStyle(this._pz.element).transform );
+
+            super.pause();
+
+            // wait for next frame so the switcheroo is seamless...
+            requestAnimationFrame( () => {
+                this._pz.editTransform( (t) => {
+                    t.x = transform.x,
+                    t.y = transform.y,
+                    t.zoom = transform.zoom
+                });
+                super.cancel();
+                resolve();
+            } )
+        } )
+    }
+}
+
+
 export class Panzoom {
+
 
     /**
      * What scrolling one wheel click towards you multiplies the zoom factor by.
@@ -82,23 +189,23 @@ export class Panzoom {
     public minZoom: number = 1 / this.maxZoom;
 
     /**
+     * How far to allow the panzoom element to overflow
+     */
+    public overflow: number = 0.5;
+
+    /**
      * The container for the panzoom element
      */
-    protected container: HTMLElement;
+    public readonly container: HTMLElement;
 
     /** 
      * Don't modify this directly unless you really know what you're doing.
      * Use {@linkcode editTransform} instead so the visuals update.
      */
-    private _transform: PanzoomTransform = {
+    protected readonly _transform: PanzoomTransform = {
         x: 0,
         y: 0,
         zoom: 1
-    }
-
-    protected clampZoomChangeMul(z: number){
-        const next = z * this._transform.zoom;
-        return Math.min( Math.max( next, this.minZoom ), this.maxZoom ) / this._transform.zoom;
     }
 
     /**
@@ -108,7 +215,7 @@ export class Panzoom {
     public editTransform( change: (t: PanzoomTransform) => void ){
         const t = this._transform;
         change(t);
-        this.element.style.transform = `matrix(${t.zoom}, 0, 0, ${t.zoom}, ${t.x}, ${t.y})`
+        this.element.style.transform = getMatrix(t);
     }
 
     /**
@@ -120,6 +227,45 @@ export class Panzoom {
             y: this._transform.y,
             zoom: this._transform.zoom
         }
+    }
+
+    private anim?: PanzoomAnimation
+
+    /**
+     * Computes a change to the internal transform and animates a transition towards it.
+     */
+    public async animateTransform( change: (t: PanzoomTransform) => void, duration: number = 500, easing: string = "ease-in-out" ) {
+
+        if( this.anim && !this.anim.done )
+            await this.anim.interrupt(); // AGGHHH HOLD ON
+
+        const next = this.getTransform();
+        change(next);
+        const matrix = getMatrix(next);
+
+        const anim = this.element.animate(
+            [
+                { transform: this.element.style.transform },
+                { transform: matrix }
+            ],
+            {
+                duration,
+                easing
+            }
+        )
+
+        anim.addEventListener('finish', () => {
+            this.editTransform( (t) => {
+                t.x    = next.x
+                t.y    = next.y
+                t.zoom = next.zoom
+            })
+        })
+        
+        const ret = _PanzoomAnimation.extend(anim, this)
+        this.anim = ret;
+        
+        return ret;
     }
 
     /** Converts a document-space position to a container-space position */
@@ -140,11 +286,16 @@ export class Panzoom {
         }
     }
 
+    protected clampZoomChangeMul(z: number){
+        const next = z * this._transform.zoom;
+        return Math.min( Math.max( next, this.minZoom ), this.maxZoom ) / this._transform.zoom;
+    }
+
     /**
      * Constructs a panzoom for the element, with the parent serving as the boundary
      * @param element - the element
      */
-    constructor(protected element: HTMLElement){
+    constructor(public readonly element: HTMLElement){
         this.container = element.parentElement ?? fail("The element needs a valid parent to be panzoomable.", element)
 
         // drag and select will fuck us up, so prevent them

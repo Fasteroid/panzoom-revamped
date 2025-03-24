@@ -17,10 +17,14 @@
             p.editTransform( (tr) => {
                 tr.x = 0
                 tr.y = 0
-                tr.zoom = 0.6
+                tr.zoom = 1
             })
             p.maxZoom = 1;
             p.minZoom = 0.5;
+
+            const anim = p.animateTransform( (t) => {t.zoom *= 2; t.x = 500}, 2000 );
+            
+            setTimeout( () => p.animateTransform( (t) => {t.zoom *= 0.5; t.x = -500}, 2000 ), 1000 )
         </script>
 
         <style>
