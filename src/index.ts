@@ -66,6 +66,25 @@ function totalDistance(center: ClientPos, others: ArrayLike<ClientPos>){
 
 export class Panzoom {
 
+    /**
+     * What scrolling one wheel click towards you multiplies the zoom factor by.
+     */
+    public wheelZoomRate: number = 1.1;
+
+    /**
+     * Maximum zoom factor
+     */
+    public maxZoom: number = 512;
+
+    /**
+     * Minimum zoom factor
+     */
+    public minZoom: number = 1 / this.maxZoom;
+
+    /**
+     * The container for the panzoom element
+     */
+    protected container: HTMLElement;
 
     /** 
      * Don't modify this directly unless you really know what you're doing.
@@ -77,8 +96,14 @@ export class Panzoom {
         zoom: 1
     }
 
+    protected clampZoomChangeMul(z: number){
+        const next = z * this._transform.zoom;
+        return Math.min( Math.max( next, this.minZoom ), this.maxZoom ) / this._transform.zoom;
+    }
+
     /**
      * Modifies the internal transform then updates it on the panzoom element
+     * @param change - how to modify the internal transform
      */
     public editTransform( change: (t: PanzoomTransform) => void ){
         const t = this._transform;
@@ -116,18 +141,6 @@ export class Panzoom {
     }
 
     /**
-     * What scrolling one wheel click towards you multiplies the zoom factor by.
-     */
-    public wheelZoomRate: number = 1.1;
-    
-
-    /**
-     * The container for the panzoom element
-     */
-    protected container: HTMLElement;
-
-
-    /**
      * Constructs a panzoom for the element, with the parent serving as the boundary
      * @param element - the element
      */
@@ -148,7 +161,7 @@ export class Panzoom {
 
         this.container.addEventListener('wheel', (e: WheelEvent) => {
 
-            const factor = e.deltaY < 0 ? this.wheelZoomRate : 1 / this.wheelZoomRate
+            const factor = this.clampZoomChangeMul( e.deltaY < 0 ? this.wheelZoomRate : 1 / this.wheelZoomRate);
 
             let oldZoomPoint = this.containerToChild ( this.docToContainer(e) );
 
@@ -231,7 +244,7 @@ export class Panzoom {
             const thisTouchAverage  = average(e.touches);
             const thisTouchDistance = totalDistance( thisTouchAverage, e.touches );
 
-            if( this.lastTouchCount === thisTouchCount ){ // ignore one frame if another point connects to prevent discontinuous jump
+            if( this.lastTouchCount === thisTouchCount ){ // ignore one frame if another touch connects or disconnects to prevent discontinuous jump
 
                 const lastTouchAverage = this.lastTouchAverage ?? thisTouchAverage;
                 const lastTouchDistance = this.lastTouchDistance ?? thisTouchDistance;
@@ -240,6 +253,7 @@ export class Panzoom {
                 if( factor !== factor ){ // did we get NaN?
                     factor = 1; // pretend it's fine
                 }
+                factor = this.clampZoomChangeMul(factor);
 
                 const dx = thisTouchAverage.clientX - lastTouchAverage.clientX;
                 const dy = thisTouchAverage.clientY - lastTouchAverage.clientY;
