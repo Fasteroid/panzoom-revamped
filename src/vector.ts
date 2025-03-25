@@ -1,5 +1,5 @@
 
-export type ClientPos = {
+export interface ClientPos {
     clientX: number
     clientY: number
 }

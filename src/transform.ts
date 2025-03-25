@@ -4,6 +4,8 @@ export type PanzoomTransform = {
     zoom: number
 }
 
+export type PanzoomTransformCallback = (t: PanzoomTransform) => any;
+
 /**
  * Gets the transformation matrix for a {@linkcode PanzoomTransform}
  */

@@ -1,7 +1,8 @@
 import { _PanzoomAnimation, PanzoomAnimation } from "./animation.js";
-import { average, ClientPos, totalDistance } from "./clientpos.js";
+import { average, ClientPos, totalDistance } from "./vector.js";
 import { cancel, fail } from "./misc.js";
-import { getMatrix, PanzoomTransform } from "./transform.js";
+import { getMatrix, PanzoomTransform, PanzoomTransformCallback } from "./transform.js";
+import { Kinetic } from "./kinetic.js";
 
 export class Panzoom {
 
@@ -32,23 +33,28 @@ export class Panzoom {
      */
     public readonly container: HTMLElement;
 
+    public readonly kinetic = new Kinetic();
+
     /** 
      * Don't modify this directly unless you really know what you're doing.
      * Use {@linkcode editTransform} instead so the visuals update.
      */
-    protected readonly _transform: PanzoomTransform = {
+    protected readonly transform: PanzoomTransform = {
         x: 0,
         y: 0,
         zoom: 1
     }
+
+    protected readonly transformCallbacks = new Set<PanzoomTransformCallback>();
 
     /**
      * Modifies the internal transform then updates it on the panzoom element
      * @param change - how to modify the internal transform
      */
     public editTransform( change: (t: PanzoomTransform) => void ){
-        const t = this._transform;
+        const t = this.transform;
         change(t);
+        this.transformCallbacks.forEach( cb => cb( this.getTransform() ) )
         this.element.style.transform = getMatrix(t);
     }
 
@@ -57,9 +63,16 @@ export class Panzoom {
      */
     public getTransform(): PanzoomTransform {
         return {
-            x: this._transform.x,
-            y: this._transform.y,
-            zoom: this._transform.zoom
+            x: this.transform.x,
+            y: this.transform.y,
+            zoom: this.transform.zoom
+        }
+    }
+
+    public onTransformChanged( cb: PanzoomTransformCallback ) {
+        this.transformCallbacks.add(cb);
+        return {
+            unsubscribe: () => this.transformCallbacks.delete(cb)
         }
     }
 
@@ -67,9 +80,9 @@ export class Panzoom {
      * Like {@link editTransform}, but respects viewport constraints 
      * @param change - how to modify the internal transform
      */
-    public editTransformConstrained( change: (t: PanzoomTransform) => void ){
+    public editTransformConstrained( change: (t: PanzoomTransform) => void ) {
 
-        if( !this.minVisible ) return;
+        const minVisible = this.minVisible ?? -Infinity
 
         const changed = this.getTransform();
         change(changed);
@@ -80,30 +93,30 @@ export class Panzoom {
         const childRect    = this.element.getBoundingClientRect();
         const viewportRect = this.container.getBoundingClientRect();
 
-        const factor  = changed.zoom / this._transform.zoom;
+        const factor  = this.clampZoomChangeMul( changed.zoom / this.transform.zoom );
 
         const newWidth = childRect.width * factor / 2;
         const newHeight = childRect.height * factor / 2;
 
 
         const left = x + viewportRect.width / 2 + newWidth;
-        if( left < this.minVisible ) {
-            x += ( this.minVisible - left )
+        if( left < minVisible ) {
+            x += ( minVisible - left )
         }
 
         const top = y + viewportRect.height / 2 + newHeight;
-        if( top < this.minVisible ) {
-            y += ( this.minVisible - top )
+        if( top < minVisible ) {
+            y += ( minVisible - top )
         }
 
         const right = -x + viewportRect.width / 2 + newWidth;
-        if( right < this.minVisible ) {
-            x += ( right - this.minVisible )
+        if( right < minVisible ) {
+            x += ( right - minVisible )
         }
 
         const bottom = -y + viewportRect.height / 2 + newHeight;
-        if( bottom < this.minVisible ) {
-            y += ( bottom - this.minVisible )
+        if( bottom < minVisible ) {
+            y += ( bottom - minVisible )
         }
 
         this.editTransform((t) => {
@@ -159,22 +172,22 @@ export class Panzoom {
         const bounds = this.container.getBoundingClientRect();
             
         return {
-            clientX: pos.clientX - bounds.x - bounds.width / 2 - this._transform.x, 
-            clientY: pos.clientY - bounds.y - bounds.height / 2 - this._transform.y
+            clientX: pos.clientX - bounds.x - bounds.width / 2 - this.transform.x, 
+            clientY: pos.clientY - bounds.y - bounds.height / 2 - this.transform.y
         }
     }
 
     public childToDoc(pos: ClientPos): ClientPos {
         const bounds = this.container.getBoundingClientRect();
         return {
-            clientX: pos.clientX + bounds.x + bounds.width / 2 + this._transform.x,
-            clientY: pos.clientY + bounds.y + bounds.height / 2 + this._transform.y
+            clientX: pos.clientX + bounds.x + bounds.width / 2 + this.transform.x,
+            clientY: pos.clientY + bounds.y + bounds.height / 2 + this.transform.y
         }
     }
 
     protected clampZoomChangeMul(z: number){
-        const next = z * this._transform.zoom;
-        return Math.min( Math.max( next, this.minZoom ), this.maxZoom ) / this._transform.zoom;
+        const next = z * this.transform.zoom;
+        return Math.min( Math.max( next, this.minZoom ), this.maxZoom ) / this.transform.zoom;
     }
 
     /**
@@ -227,21 +240,38 @@ export class Panzoom {
 
         })
 
+        this.kinetic.onVelocityChanged( (vel) => {
+            this.editTransformConstrained( (t) => {
+                t.x += vel.dx;
+                t.y += vel.dy;
+            } )
+        } )
+
         // this.element.addEventListener('mousedown', () => { console.log("clicked the cat") })
     }
 
     private lastMousePos: ClientPos | undefined;
+    private lastMouseTime: number | undefined;
 
     protected startMousePan(e: MouseEvent){
 
         if( this.lastMousePos ) return;
 
+        this.kinetic.stopKinetics();
+
         this.lastMousePos = e;
+        this.lastMouseTime = performance.now();
+
         const mousePanCallback = (e: MouseEvent) => {
             const lastPos = this.lastMousePos ?? e;
+            const lastTime = this.lastMouseTime ?? performance.now();
+            const thisTime = performance.now();
+            const dt = thisTime - lastTime 
 
             const dx = e.clientX - lastPos.clientX;
             const dy = e.clientY - lastPos.clientY;
+
+            this.kinetic.smoothing.push({dx, dy, dt})
             
             this.editTransformConstrained( (t) => {
                 t.x += dx
@@ -249,13 +279,18 @@ export class Panzoom {
             } )
 
             this.lastMousePos = e;
+            this.lastMouseTime = thisTime;
         }
 
         document.addEventListener('mousemove', mousePanCallback);
 
-        const mousePanEnd = () => {
+        const mousePanEnd = (e: MouseEvent) => {
             document.removeEventListener('mousemove', mousePanCallback);
             document.removeEventListener('mouseup', mousePanEnd)
+
+            mousePanCallback(e); // one last update to catch the user slowing their cursor to a stop before releasing
+
+            this.kinetic.startKinetics();
             this.lastMousePos = undefined;
         }
 
@@ -265,14 +300,18 @@ export class Panzoom {
     private lastTouchAverage:  ClientPos | undefined;
     private lastTouchCount:    number | undefined;
     private lastTouchDistance: number | undefined;
+    private lastTouchTime:     number | undefined;
 
     protected startTouchPanzoom(e: TouchEvent) {
 
         if( this.lastTouchAverage ) return;
 
+        this.kinetic.stopKinetics();
+
         this.lastTouchAverage  = average( e.touches );
         this.lastTouchCount    = e.touches.length;
         this.lastTouchDistance = totalDistance( this.lastTouchAverage, e.touches )
+        this.lastTouchTime     = performance.now();
 
         const touchPanzoomCallback = (e: TouchEvent) => {
             e.preventDefault();
@@ -280,11 +319,13 @@ export class Panzoom {
             const thisTouchCount    = e.touches.length;
             const thisTouchAverage  = average(e.touches);
             const thisTouchDistance = totalDistance( thisTouchAverage, e.touches );
+            const thisTouchTime     = performance.now();
 
             if( this.lastTouchCount === thisTouchCount ){ // ignore one frame if another touch connects or disconnects to prevent discontinuous jump
 
-                const lastTouchAverage = this.lastTouchAverage ?? thisTouchAverage;
+                const lastTouchAverage  = this.lastTouchAverage ?? thisTouchAverage;
                 const lastTouchDistance = this.lastTouchDistance ?? thisTouchDistance;
+                const lastTouchTime     = this.lastTouchTime ?? thisTouchTime;
 
                 let factor = thisTouchDistance / lastTouchDistance;
                 if( factor !== factor ){ // did we get NaN?
@@ -292,8 +333,13 @@ export class Panzoom {
                 }
                 factor = this.clampZoomChangeMul(factor);
 
+                const dt = thisTouchTime - lastTouchTime;
                 const dx = thisTouchAverage.clientX - lastTouchAverage.clientX;
                 const dy = thisTouchAverage.clientY - lastTouchAverage.clientY;
+
+
+                this.kinetic.smoothing.push({dx, dy, dt});
+
                 
                 this.editTransformConstrained( (t) => {
                     t.x += dx
@@ -306,6 +352,7 @@ export class Panzoom {
             this.lastTouchAverage  = thisTouchAverage;
             this.lastTouchCount    = thisTouchCount;
             this.lastTouchDistance = thisTouchDistance
+            this.lastTouchTime     = thisTouchTime;
         }
 
         this.container.addEventListener('touchmove', touchPanzoomCallback);
@@ -314,6 +361,10 @@ export class Panzoom {
             if( e.touches.length !== 0 ) return;
             this.container.removeEventListener('touchmove', touchPanzoomCallback);
             document.removeEventListener('touchend', touchPanzoomEnd)
+
+            touchPanzoomCallback(e);
+            this.kinetic.startKinetics();
+
             this.lastTouchAverage = undefined;
         }
 
