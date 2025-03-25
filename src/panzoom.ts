@@ -198,13 +198,16 @@ export class Panzoom {
     constructor(public readonly element: HTMLElement){
         this.container = element.parentElement ?? fail("The element needs a valid parent to be panzoomable.", element)
 
-        // these events are problematic for panzooming, so we disable them
-        this.container.addEventListener('selectstart', cancel, {capture: true})
+        // drag events completely break panzooming, so we cancel them
         this.container.addEventListener('dragstart', cancel, {capture: true})
+
+        // select looks kinda weird...
+        this.container.addEventListener('selectstart', cancel, {capture: true});
 
         // we need this gross hack to prevent ios from scrolling reliably
         document.body.addEventListener('touchmove', this.blockScrollingIfPanning, {passive: false, capture: true})
 
+        // these are the actual panzoom events
         this.container.addEventListener('mousedown', this.startMousePan);
         this.container.addEventListener('touchstart', this.startTouchPanzoom, {passive: true})
         this.container.addEventListener('wheel', this.doWheelZoom, {passive: false})
@@ -231,7 +234,6 @@ export class Panzoom {
 
 
     protected blockScrollingIfPanning = (e: TouchEvent) => {
-        console.log(e)
         if( this.blockMobileScrolling ){
             e.preventDefault();
         }
@@ -240,8 +242,22 @@ export class Panzoom {
 
     protected doWheelZoom = (e: WheelEvent) => {
 
+        let target: HTMLElement = e.target as HTMLElement;
+        let style = getComputedStyle(target);
+
+        // if the user is trying to scroll a scrollable element inside the panzoom, defer to that
+        if( 
+            target !== this.container && (
+                ( ['auto', 'scroll'].includes(style.overflowX) && target.scrollHeight > target.offsetHeight ) ||
+                ( ['auto', 'scroll'].includes(style.overflowY) && target.scrollWidth > target.offsetWidth && e.shiftKey )
+            )
+        )
+        return;
+
+        // otherwise proceed as normal
         e.preventDefault();
         e.stopPropagation();
+
 
         const factor = this.clampZoomChangeMul( e.deltaY < 0 ? this.wheelZoomRate : 1 / this.wheelZoomRate );
 
@@ -264,6 +280,8 @@ export class Panzoom {
         let err_x = oldZoomPoint.clientX * (factor - 1);
         let err_y = oldZoomPoint.clientY * (factor - 1);
 
+        console.log("wheelzoom")
+
         this.editTransformConstrained( (t) => {
             t.zoom *= factor
             t.x -= err_x
@@ -279,6 +297,8 @@ export class Panzoom {
     private lastMouseTime: number | undefined;
 
     protected startMousePan = (e: MouseEvent) => {
+
+        console.log(e)
 
         if( this.lastMousePos ) return;
 
@@ -334,6 +354,18 @@ export class Panzoom {
     protected startTouchPanzoom = (e: TouchEvent) => {
 
         if( this.lastTouchAverage ) return;
+
+        let target = e.target as HTMLElement;
+        let style = getComputedStyle(target);
+
+        // if the user is trying to scroll a scrollable element inside the panzoom, defer to that
+        if( 
+            target !== this.container && (
+                ( ['auto', 'scroll'].includes(style.overflowX) && target.scrollHeight > target.offsetHeight ) ||
+                ( ['auto', 'scroll'].includes(style.overflowY) && target.scrollWidth > target.offsetWidth )
+            )
+        )
+        return;
 
         this.kinetic.stopKinetics();
 
