@@ -4,7 +4,12 @@
     <body>
         <div class="cursed">
             <div id="panzoomer">
-                <img id="cat" src="https://fasteroid.github.io/assets/expression2/raytracer/skybase_big.png" (click)="console.log('meow')">
+                <div id="panzoomee">
+                    According to all known laws of aviation, there is no way a bee should be able to fly. Its wings are too small to get its
+                    fat little body off the ground. The bee, of course, flies anyway because bees don't care what humans think is impossible.
+                    Yellow, black. Yellow, black. Yellow, black. Yellow, black. Ooh, black and yellow! Let's shake it up a little. Barry! Breakfast
+                    is ready! Coming! Hang on a second. Hello? - Barry? - Adam? - Can you believe this is happening? - I can't. I'll pick you up.
+                </div>
             </div>
         </div>
     </body>
@@ -12,15 +17,15 @@
     <head>
         <script type="module">
             import { Panzoom } from "./dist/index.js";  // Adjust the path if necessary
-            window.p = new Panzoom( document.getElementById("cat") )
+            window.p = new Panzoom( document.getElementById("panzoomee") )
             p.editTransform( (tr) => {
                 tr.x = 0
                 tr.y = 0
                 tr.zoom = 1
             } );
-            p.maxZoom = 1;
-            p.minZoom = 0.5;
-            p.minVisible = 512;
+            p.maxZoom = 5;
+            p.minZoom = 0.1;
+            p.minVisible = 10;
         </script>
 
         <style>
@@ -38,6 +43,13 @@
                 display: flex;
                 align-items: center;
                 justify-content: center;
+            }
+
+            #panzoomee {
+                height: 400px;
+                width: 400px;
+                overflow: scroll;
+                font-size: 30pt;
             }
 
             body {

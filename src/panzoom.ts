@@ -129,7 +129,6 @@ export class Panzoom {
 
 
     private anim?: PanzoomAnimation
-
     /**
      * Computes a change to the internal transform and animates a transition towards it.
      */
@@ -185,10 +184,12 @@ export class Panzoom {
         }
     }
 
-    protected clampZoomChangeMul(z: number){
+    public clampZoomChangeMul(z: number){
         const next = z * this.transform.zoom;
         return Math.min( Math.max( next, this.minZoom ), this.maxZoom ) / this.transform.zoom;
     }
+
+    private blockMobileScrolling: boolean = false;
 
     /**
      * Constructs a panzoom for the element, with the parent serving as the boundary
@@ -197,48 +198,16 @@ export class Panzoom {
     constructor(public readonly element: HTMLElement){
         this.container = element.parentElement ?? fail("The element needs a valid parent to be panzoomable.", element)
 
-        // drag and select will fuck us up, so prevent them
-        this.container.addEventListener('selectstart', cancel)
-        this.container.addEventListener('dragstart', cancel)
+        // these events are problematic for panzooming, so we disable them
+        this.container.addEventListener('selectstart', cancel, {capture: true})
+        this.container.addEventListener('dragstart', cancel, {capture: true})
 
-        this.container.addEventListener('mousedown', (e) => {
-            this.startMousePan(e);
-        });
+        // we need this gross hack to prevent ios from scrolling reliably
+        document.body.addEventListener('touchmove', this.blockScrollingIfPanning, {passive: false, capture: true})
 
-        this.container.addEventListener('touchstart', (e) => {
-            this.startTouchPanzoom(e);
-        })
-
-        this.container.addEventListener('wheel', (e: WheelEvent) => {
-
-            const factor = this.clampZoomChangeMul( e.deltaY < 0 ? this.wheelZoomRate : 1 / this.wheelZoomRate );
-
-            let oldZoomPoint = this.docToChild(e);
-
-            /*
-                // if we were to scale as-is, where would the mouse end up?
-                // subtract how it moves from the final transformation to keep it in the same place relative to the panzoom child.
-
-                let newZoomPoint = {
-                    clientX: oldZoomPoint.clientX * factor,
-                    clientY: oldZoomPoint.clientY * factor
-                }
-
-                let err_x = newZoomPoint.clientX - oldZoomPoint.clientX;
-                let err_y = newZoomPoint.clientY - oldZoomPoint.clientY;
-            */
-
-            // through a little algebra, the above becomes the following:
-            let err_x = oldZoomPoint.clientX * (factor - 1);
-            let err_y = oldZoomPoint.clientY * (factor - 1);
-
-            this.editTransformConstrained( (t) => {
-                t.zoom *= factor
-                t.x -= err_x
-                t.y -= err_y
-            } )
-
-        })
+        this.container.addEventListener('mousedown', this.startMousePan);
+        this.container.addEventListener('touchstart', this.startTouchPanzoom, {passive: true})
+        this.container.addEventListener('wheel', this.doWheelZoom, {passive: false})
 
         this.kinetic.onVelocityChanged( (vel) => {
             this.editTransformConstrained( (t) => {
@@ -246,14 +215,70 @@ export class Panzoom {
                 t.y += vel.dy;
             } )
         } )
-
-        // this.element.addEventListener('mousedown', () => { console.log("clicked the cat") })
     }
 
+
+    public dispose(){
+        this.container.removeEventListener('selectstart', cancel, {capture: true});
+        this.container.removeEventListener('dragstart', cancel, {capture: true});
+
+        document.body.removeEventListener('touchmove', this.blockScrollingIfPanning, {capture: true})
+
+        this.container.removeEventListener('mousedown', this.startMousePan);
+        this.container.removeEventListener('touchstart', this.startTouchPanzoom);
+        this.container.removeEventListener('wheel', this.doWheelZoom);
+    }
+
+
+    protected blockScrollingIfPanning = (e: TouchEvent) => {
+        console.log(e)
+        if( this.blockMobileScrolling ){
+            e.preventDefault();
+        }
+    }
+
+
+    protected doWheelZoom = (e: WheelEvent) => {
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const factor = this.clampZoomChangeMul( e.deltaY < 0 ? this.wheelZoomRate : 1 / this.wheelZoomRate );
+
+        let oldZoomPoint = this.docToChild(e);
+
+        /*
+            // if we were to scale as-is, where would the mouse end up?
+            // subtract how it moves from the final transformation to keep it in the same place relative to the panzoom child.
+
+            let newZoomPoint = {
+                clientX: oldZoomPoint.clientX * factor,
+                clientY: oldZoomPoint.clientY * factor
+            }
+
+            let err_x = newZoomPoint.clientX - oldZoomPoint.clientX;
+            let err_y = newZoomPoint.clientY - oldZoomPoint.clientY;
+        */
+
+        // through a little algebra, the above becomes the following:
+        let err_x = oldZoomPoint.clientX * (factor - 1);
+        let err_y = oldZoomPoint.clientY * (factor - 1);
+
+        this.editTransformConstrained( (t) => {
+            t.zoom *= factor
+            t.x -= err_x
+            t.y -= err_y
+        } )
+
+    }
+
+
+
+    
     private lastMousePos: ClientPos | undefined;
     private lastMouseTime: number | undefined;
 
-    protected startMousePan(e: MouseEvent){
+    protected startMousePan = (e: MouseEvent) => {
 
         if( this.lastMousePos ) return;
 
@@ -297,24 +322,28 @@ export class Panzoom {
         document.addEventListener('mouseup', mousePanEnd)
     }
 
+
+
+
+
     private lastTouchAverage:  ClientPos | undefined;
     private lastTouchCount:    number | undefined;
     private lastTouchDistance: number | undefined;
     private lastTouchTime:     number | undefined;
 
-    protected startTouchPanzoom(e: TouchEvent) {
+    protected startTouchPanzoom = (e: TouchEvent) => {
 
         if( this.lastTouchAverage ) return;
 
         this.kinetic.stopKinetics();
 
+        this.blockMobileScrolling = true;
         this.lastTouchAverage  = average( e.touches );
         this.lastTouchCount    = e.touches.length;
         this.lastTouchDistance = totalDistance( this.lastTouchAverage, e.touches )
         this.lastTouchTime     = performance.now();
 
         const touchPanzoomCallback = (e: TouchEvent) => {
-            e.preventDefault();
 
             const thisTouchCount    = e.touches.length;
             const thisTouchAverage  = average(e.touches);
@@ -359,13 +388,15 @@ export class Panzoom {
 
         const touchPanzoomEnd = (e: TouchEvent) => {
             if( e.touches.length !== 0 ) return;
-            this.container.removeEventListener('touchmove', touchPanzoomCallback);
-            document.removeEventListener('touchend', touchPanzoomEnd)
-
             touchPanzoomCallback(e);
+
+            this.container.removeEventListener('touchmove', touchPanzoomCallback);
+            document.removeEventListener('touchend', touchPanzoomEnd);
+
             this.kinetic.startKinetics();
 
             this.lastTouchAverage = undefined;
+            this.blockMobileScrolling = false;
         }
 
         document.addEventListener('touchend', touchPanzoomEnd)

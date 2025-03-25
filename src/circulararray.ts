@@ -20,5 +20,6 @@ export class CircularArray<T> {
 
     public clear(){
         this._items.splice(0,this._items.length);
+        this.ptr = 0;
     }
 }
