@@ -310,6 +310,8 @@ export class Panzoom {
 
         if( this.lastMousePos ) return;
 
+        if( e.button !== 0 ) return; // primary button only
+
         this.kinetic.stopKinetics();
 
         this.lastMousePos = e;
