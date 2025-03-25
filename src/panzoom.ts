@@ -201,10 +201,10 @@ export class Panzoom {
         // drag events completely break panzooming, so we cancel them
         this.container.addEventListener('dragstart', cancel, {capture: true})
 
-        // select looks kinda weird...
-        this.container.addEventListener('selectstart', cancel, {capture: true});
+        // text selection acts funky if the user drags over the v̺̩ͯo͎̮ͤ̂͂i͈̘̝͉̽͋ͮd̪͇̟͂̃͐̊̚͟, so we'll prevent that
+        this.container.addEventListener('selectstart', this.blockSelectingOnContainer);
 
-        // we need this gross hack to prevent ios from scrolling reliably
+        // we need this gross hack to (reliably) prevent iOS from scrolling the page when panzooming
         document.body.addEventListener('touchmove', this.blockScrollingIfPanning, {passive: false, capture: true})
 
         // these are the actual panzoom events
@@ -221,8 +221,13 @@ export class Panzoom {
     }
 
 
+    /**
+     * If using this in the context of a framework, **call this when the panzoom goes out-of-scope**.
+     * 
+     * *(If you don't, you'll probably get event listener memory leaks!)*
+     */
     public dispose(){
-        this.container.removeEventListener('selectstart', cancel, {capture: true});
+        this.container.removeEventListener('selectstart', this.blockSelectingOnContainer, {capture: true});
         this.container.removeEventListener('dragstart', cancel, {capture: true});
 
         document.body.removeEventListener('touchmove', this.blockScrollingIfPanning, {capture: true})
@@ -236,6 +241,13 @@ export class Panzoom {
     protected blockScrollingIfPanning = (e: TouchEvent) => {
         if( this.blockMobileScrolling ){
             e.preventDefault();
+        }
+    }
+
+    protected blockSelectingOnContainer = (e: Event) => {
+        if( e.target === this.container ){
+            e.preventDefault();
+            e.stopPropagation();
         }
     }
 
@@ -280,8 +292,6 @@ export class Panzoom {
         let err_x = oldZoomPoint.clientX * (factor - 1);
         let err_y = oldZoomPoint.clientY * (factor - 1);
 
-        console.log("wheelzoom")
-
         this.editTransformConstrained( (t) => {
             t.zoom *= factor
             t.x -= err_x
@@ -297,8 +307,6 @@ export class Panzoom {
     private lastMouseTime: number | undefined;
 
     protected startMousePan = (e: MouseEvent) => {
-
-        console.log(e)
 
         if( this.lastMousePos ) return;
 

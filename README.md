@@ -1,7 +1,7 @@
 # panzoom-revamped
 ###### based on [anvaka's panzoom](https://github.com/anvaka/panzoom)
 
-*Actually* extensible, mobile-friendly (soon) pan & zoom framework.<br>
+*Actually* extensible, mobile-friendly pan & zoom framework.<br>
 Now with 20% less jank!
 
 ## Usage Example
@@ -27,6 +27,15 @@ Now with 20% less jank!
 </script>
 ```
 
+## But what if..?
+###### Your edge case is probably covered by this library!
+- By default, elements inside the panzoom can still be scrolled normally (that is, without triggering panzoom behavior)
+- Mobile panzooming supports as many touch points as you can fit on the screen.
+- Don't like kinetic smooth scrolling? &nbsp;There's a setting for that!
+  ```ts
+  pz.kinetic.friction = 1; // max friction => no more sliding!
+  ```
+- It'll probably work in your favorite framework out-of-the-box since it uses ✨ *no dependencies!* ✨
 ## License
 
 MIT License
