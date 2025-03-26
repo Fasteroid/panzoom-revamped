@@ -46,8 +46,6 @@ Now with 20% less jank!
 ## Limitations...
 ###### Stuff I can't fix because browsers suck
 - Currently, any descendant of a panzoom that creates a new [stacking context](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout/Stacking_context) is prone to polluting the entire panzoom with [low-quality zooming](https://www.youtube.com/watch?v=ZrA5hD-XRgk). &nbsp;**This happens consistently on iOS Safari and its [derivatives](https://en.wikipedia.org/wiki/WebKit?useskin=vector), and due to their implementation, even scrollable elements inside the panzoom will trigger this bug.**
-
-- iOS Safari has also forced me to adopt a gross global event listener with capturing enabled to reliably prevent scrolling the page during panzooming. &nbsp;This shouldn't break anything, but is another reason
 ## License
 
 MIT License
