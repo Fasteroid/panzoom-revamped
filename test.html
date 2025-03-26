@@ -1,18 +1,28 @@
 <!DOCTYPE html>
 <html style="background-color: #2f3234; color: white">
 
-    <body>
-        <div class="cursed">
-            <div id="panzoomer">
-                <div id="panzoomee">
-                    According to all known laws of aviation, there is no way a bee should be able to fly. Its wings are too small to get its
-                    fat little body off the ground. The bee, of course, flies anyway because bees don't care what humans think is impossible.
-                    Yellow, black. Yellow, black. Yellow, black. Yellow, black. Ooh, black and yellow! Let's shake it up a little. Barry! Breakfast
-                    is ready! Coming! Hang on a second. Hello? - Barry? - Adam? - Can you believe this is happening? - I can't. I'll pick you up.
-                    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    <body class="flex-center-column">
+        <div id="panzoomer" class="flex-center-column">
+
+            <div id="panzoomee">
+
+
+                <div class="container flex-center-column">
+                    <div>This box contains a microbe</div>
+                    <div style="font-size: smaller">(zoom to see it)</div>
+                    <div id="microbe" class="flex-center-column">
+                        <div>I AM VERY SMALL :3</div>
+                        <div>🦠</div>
+                    </div>
                 </div>
-                <!-- <img id="panzoomee" src="https://fasteroid.github.io/assets/expression2/raytracer/skybase_big.png"> -->
+
+                <div class="container flex-center-column">
+                    <div>Here's the entire bee movie script, to demonstrate that scrollable elements still work inside a panzoom.</div>
+                    <div id="bee-movie-script"></div>
+                </div>
+
             </div>
+
         </div>
     </body>
 
@@ -25,16 +35,31 @@
                 tr.y = 0
                 tr.zoom = 1
             } );
-            p.maxZoom = 5;
+            p.maxZoom = 10;
             p.minZoom = 0.1;
             p.minVisible = 10;
+
+            fetch('https://gist.githubusercontent.com/MattIPv4/045239bc27b16b2bcf7a3a9a4648c08a/raw/2411e31293a35f3e565f61e7490a806d4720ea7e/bee%2520movie%2520script')
+                .then( res => res.text() )
+                .then( text => document.getElementById('bee-movie-script').innerText = text.replaceAll('\n',' ') )
         </script>
 
         <style>
-            .cursed {
-                padding-left: 400px;
-                max-width: 100dvw;
+
+            .flex-center-column {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+            }
+
+            .container {
+                gap: 5px;
+            }
+
+            body {
                 height: 100dvh;
+                width: 100dvw;          
             }
 
             #panzoomer {
@@ -42,16 +67,31 @@
                 box-sizing: border-box;
                 overflow: hidden;
 
-                display: flex;
-                align-items: center;
-                justify-content: center;
+                width: 70dvw;
+                height: 70dvh;
             }
 
-            #panzoomee {
-                height: 400px;
-                width: 400px;
-                overflow: scroll;
-                font-size: 30pt;
+            #panzoomee > * {
+                box-sizing: border-box;
+                float: left;
+                margin: 10px;
+            }
+
+
+            #microbe {
+                font-size: 1px;
+                width: 32px;
+                height: 32px;
+                border: 1px solid greenyellow;
+                gap: 0.5px;
+            }
+
+            #bee-movie-script {
+                font-size: 5px;
+                width: 300px;
+                height: 200px;
+                overflow-y: scroll;
+                overflow-x: hidden;
             }
 
             body {
