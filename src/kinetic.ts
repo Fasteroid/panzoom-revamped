@@ -22,6 +22,7 @@ export class Kinetic {
     
     private lock: {} = {};
 
+    /** Starts kinetic smooth-scrolling.  The returned promise resolves when motion has ended. */
     public async startKinetics(){
         
         let lock = {};
@@ -33,8 +34,8 @@ export class Kinetic {
             dy += item.dy;
             dt += item.dt;
         }
-        if( dt === 0 ){ dt = 1 }; // don't produce NaN
-        dt /= MAGIC_SCALING_FACTOR; // not sure where this 10 comes from but it seems necessary
+        if( dt === 0 ){ dt = 1 };  // don't produce NaN
+        dt /= MAGIC_SCALING_FACTOR;
         dx /= dt;
         dy /= dt;
         this.smoothing.clear();
@@ -63,11 +64,19 @@ export class Kinetic {
         
     }
 
+    /** Instantly halts any current motion */
     public stopKinetics(){
         this.lock = {};
     }
 
     protected readonly callbacks = new Set<KineticCallback>();
+
+    /**
+     * Adds a callback that will be called whenever the velocity changes.
+
+     * You can remove it by calling `unsubscribe` on the return value.
+     * @param cb - the callback
+    */
     public onVelocityChanged( cb: KineticCallback ) {
         this.callbacks.add(cb);
         return {
