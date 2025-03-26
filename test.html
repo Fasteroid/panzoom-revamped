@@ -39,6 +39,8 @@
             p.maxZoom = 10;
             p.minZoom = 0.1;
             p.minVisible = 100;
+            
+            p.animateTransform( (t) => { t.zoom *= 2 }, 1000 )
 
             fetch('https://raw.githubusercontent.com/BioPhoton/rxjs/4d27a78bbf04835736f1521db7b70aa8f220fa70/resources/CI-CD/logo/svg/RxJs_Logo_Basic.svg')
                 .then( res => res.text() )

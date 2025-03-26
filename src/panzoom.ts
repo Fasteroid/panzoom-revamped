@@ -288,7 +288,9 @@ export class Panzoom {
      * 
      * Can be overridden. 
      */
-    protected doWheelZoom(e: WheelEvent) {
+    protected async doWheelZoom(e: WheelEvent) {
+
+        await this.anim?.interrupt();
 
         e.preventDefault();
         e.stopPropagation();
@@ -324,13 +326,14 @@ export class Panzoom {
      * 
      * Can be overridden.
      */
-    protected startMousePan(e: MouseEvent) {
+    protected async startMousePan(e: MouseEvent) {
 
         if( this.lastMousePos ) return;
 
         if( e.button !== 0 ) return; // primary button only
 
         this.kinetic.stopKinetics();
+        await this.anim?.interrupt();
 
         this.lastMousePos = e;
         this.lastMouseTime = performance.now();
@@ -388,11 +391,12 @@ export class Panzoom {
      * 
      * Can be overridden.
      */
-    protected startTouchPanzoom(e: TouchEvent) {
+    protected async startTouchPanzoom(e: TouchEvent) {
 
         if( this.lastTouchAverage ) return;
 
         this.kinetic.stopKinetics();
+        await this.anim?.interrupt();
 
         this.blockMobileScrolling = true;
         this.lastTouchAverage  = average( e.touches );
