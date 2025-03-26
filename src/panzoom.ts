@@ -254,7 +254,7 @@ export class Panzoom {
                 ( ['auto', 'scroll'].includes(style.overflowY) && target.scrollHeight > target.offsetHeight && dir !== SCROLL_DIRECTION.HORIZONTAL )
             )
         )
-}
+    }
 
     protected blockScrollingIfPanning = (e: TouchEvent) => {
         if( this.blockMobileScrolling ){
