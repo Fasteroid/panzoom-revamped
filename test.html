@@ -17,8 +17,8 @@
                 </div>
 
                 <div class="container flex-center-column">
-                    <div>Here's the entire bee movie script, to demonstrate that scrollable elements still work inside a panzoom.</div>
-                    <div id="bee-movie-script"></div>
+                    <div>Here's an SVG</div>
+                    <div id="svg-victim"></div>
                 </div>
 
             </div>
@@ -39,9 +39,9 @@
             p.minZoom = 0.1;
             p.minVisible = 10;
 
-            fetch('https://gist.githubusercontent.com/MattIPv4/045239bc27b16b2bcf7a3a9a4648c08a/raw/2411e31293a35f3e565f61e7490a806d4720ea7e/bee%2520movie%2520script')
+            fetch('https://raw.githubusercontent.com/BioPhoton/rxjs/4d27a78bbf04835736f1521db7b70aa8f220fa70/resources/CI-CD/logo/svg/RxJs_Logo_Basic.svg')
                 .then( res => res.text() )
-                .then( text => document.getElementById('bee-movie-script').innerText = text.replaceAll('\n',' ') )
+                .then( text => document.getElementById('svg-victim').innerHTML = text )
         </script>
 
         <style>
@@ -83,15 +83,12 @@
                 width: 32px;
                 height: 32px;
                 border: 1px solid greenyellow;
-                gap: 0.5px;
+                gap: 2px;
             }
 
-            #bee-movie-script {
-                font-size: 5px;
-                width: 300px;
-                height: 200px;
-                overflow-y: scroll;
-                overflow-x: hidden;
+            #svg-victim {
+                width: 128px;
+                height: 128px;
             }
 
             body {
