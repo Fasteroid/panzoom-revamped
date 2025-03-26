@@ -38,6 +38,12 @@ export class _PanzoomAnimation extends Animation {
         super.finish();
     }
 
+    /** Runs the callback when the animation is completed, canceled, or interrupted */
+    public onDone( cb: () => void ){
+        this.addEventListener('finish', cb, { once: true });
+        this.addEventListener('cancel', cb, { once: true });
+    }
+
     /** Cancels the animation where it is and commits the current transformation */
     public async interrupt() {
         return new Promise<void>( (resolve) => {

@@ -151,7 +151,7 @@ export class Panzoom {
     }
 
     /**
-     * The current animation (which could be finished), if any.
+     * The currently running animation, if any.
      */
     protected anim: PanzoomAnimation | undefined;
 
@@ -188,11 +188,22 @@ export class Panzoom {
                 t.zoom = next.zoom
             })
         })
-        
+
         const ret = _PanzoomAnimation.extend(anim, this)
+
+        // clear the animation when it's done
+        ret.onDone( () => {
+            this.anim = undefined;
+        });
+
         this.anim = ret;
         
         return ret;
+    }
+
+    public async interruptAnimation(){
+        if( this.anim && !this.anim.done )
+            await this.anim.interrupt();
     }
 
     /** Converts a document-space position to a child-space position, without any scaling applied, and returns that. */
