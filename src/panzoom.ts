@@ -146,6 +146,9 @@ export class Panzoom {
 
     /**
      * Computes a change to the internal transform and animates a transition towards it.
+     * @param change - how to modify the internal transform
+     * @param duration - how long the animation should last in milliseconds
+     * @param easing - the css easing function to use
      */
     public async animateTransform( change: (t: PanzoomTransform) => void, duration: number = 500, easing: string = "ease-in-out" ) {
 
@@ -216,6 +219,9 @@ export class Panzoom {
         // drag events completely break panzooming, so we cancel them
         this.container.addEventListener('dragstart', cancel, {capture: true})
 
+        // select events also look kinda weird
+        this.container.addEventListener('selectstart', cancel, {capture: true})
+
         // we need this gross hack to (reliably) prevent iOS from scrolling the page when panzooming
         const blockScrollingIfPanning = (e: TouchEvent) => this.blockScrollingIfPanning(e);
         document.body.addEventListener('touchmove', blockScrollingIfPanning, {passive: false, capture: true})
@@ -232,6 +238,7 @@ export class Panzoom {
 
         this.dispose = () => {
             this.container.removeEventListener('dragstart', cancel, {capture: true});
+            this.container.removeEventListener('selectstart', cancel, {capture: true});
     
             document.body.removeEventListener('touchmove', blockScrollingIfPanning, {capture: true})
     
