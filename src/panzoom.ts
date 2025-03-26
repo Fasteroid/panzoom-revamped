@@ -4,6 +4,11 @@ import { cancel, fail } from "./misc.js";
 import { getMatrix, PanzoomTransform, PanzoomTransformCallback } from "./transform.js";
 import { Kinetic } from "./kinetic.js";
 
+const SCROLL_DIRECTION = {
+    VERTICAL: false,
+    HORIZONTAL: true
+} as const;
+
 export class Panzoom {
 
 
@@ -238,6 +243,19 @@ export class Panzoom {
     }
 
 
+    protected isValidScroll(e: TouchEvent | WheelEvent){
+        const target = e.target as HTMLElement;
+        const style = getComputedStyle(target);
+        const dir = (e instanceof TouchEvent) ? undefined : e.shiftKey; // false = vertical, true = horizontal, undefined = mobile (could be both)
+
+        return (
+            target !== this.container && (
+                ( ['auto', 'scroll'].includes(style.overflowX) && target.scrollWidth > target.offsetWidth   && dir !== SCROLL_DIRECTION.VERTICAL   ) ||
+                ( ['auto', 'scroll'].includes(style.overflowY) && target.scrollHeight > target.offsetHeight && dir !== SCROLL_DIRECTION.HORIZONTAL )
+            )
+        )
+}
+
     protected blockScrollingIfPanning = (e: TouchEvent) => {
         if( this.blockMobileScrolling ){
             e.preventDefault();
@@ -254,17 +272,8 @@ export class Panzoom {
 
     protected doWheelZoom = (e: WheelEvent) => {
 
-        let target: HTMLElement = e.target as HTMLElement;
-        let style = getComputedStyle(target);
-
         // if the user is trying to scroll a scrollable element inside the panzoom, defer to that
-        if( 
-            target !== this.container && (
-                ( ['auto', 'scroll'].includes(style.overflowX) && target.scrollHeight > target.offsetHeight ) ||
-                ( ['auto', 'scroll'].includes(style.overflowY) && target.scrollWidth > target.offsetWidth && e.shiftKey )
-            )
-        )
-        return;
+        if( this.isValidScroll(e) ) return;
 
         // otherwise proceed as normal
         e.preventDefault();
@@ -365,17 +374,8 @@ export class Panzoom {
 
         if( this.lastTouchAverage ) return;
 
-        let target = e.target as HTMLElement;
-        let style = getComputedStyle(target);
-
         // if the user is trying to scroll a scrollable element inside the panzoom, defer to that
-        if( 
-            target !== this.container && (
-                ( ['auto', 'scroll'].includes(style.overflowX) && target.scrollHeight > target.offsetHeight ) ||
-                ( ['auto', 'scroll'].includes(style.overflowY) && target.scrollWidth > target.offsetWidth )
-            )
-        )
-        return;
+        if( this.isValidScroll(e) ) return;
 
         this.kinetic.stopKinetics();
 
