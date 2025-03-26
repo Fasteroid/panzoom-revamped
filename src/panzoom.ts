@@ -1,8 +1,10 @@
-import { _PanzoomAnimation, PanzoomAnimation } from "./animation.js";
-import { average, ClientPos, totalDistance } from "./vector.js";
-import { cancel, fail } from "./misc.js";
-import { getMatrix, PanzoomTransform, PanzoomTransformCallback } from "./transform.js";
-import { Kinetic } from "./kinetic.js";
+import { _PanzoomAnimation, PanzoomAnimation } from './animation.js';
+import { Kinetic } from './kinetic.js';
+import { cancel, fail } from './misc.js';
+import { getMatrix, PanzoomTransform, PanzoomTransformCallback } from './transform.js';
+import { average, ClientPos, totalDistance } from './vector.js';
+
+
 
 const SCROLL_DIRECTION = {
     VERTICAL: false,
@@ -34,23 +36,22 @@ export class Panzoom {
     public minVisible?: number | undefined;
 
     /**
-     * The container for the panzoom element
+     * The parent of the element passed to the constructor.
      */
     public readonly container: HTMLElement;
 
+    /**
+     * The kinetic scrolling controller for this panzoom
+     */
     public readonly kinetic = new Kinetic();
 
-    /** 
-     * Don't modify this directly unless you really know what you're doing.
-     * Use {@linkcode editTransform} instead so the visuals update.
-     */
-    protected readonly transform: PanzoomTransform = {
+    private readonly transform: PanzoomTransform = {
         x: 0,
         y: 0,
         zoom: 1
     }
 
-    protected readonly transformCallbacks = new Set<PanzoomTransformCallback>();
+    private readonly transformCallbacks = new Set<PanzoomTransformCallback>();
 
     /**
      * Modifies the internal transform then updates it on the panzoom element
@@ -74,6 +75,12 @@ export class Panzoom {
         }
     }
 
+    /**
+     * Adds a callback that will be called whenever the transform changes.
+
+     * You can remove it by calling `unsubscribe` on the return value.
+     * @param cb - the callback
+     */
     public onTransformChanged( cb: PanzoomTransformCallback ) {
         this.transformCallbacks.add(cb);
         return {
@@ -132,8 +139,11 @@ export class Panzoom {
         
     }
 
+    /**
+     * The current animation (which could be finished), if any.
+     */
+    protected anim: PanzoomAnimation | undefined;
 
-    private anim?: PanzoomAnimation
     /**
      * Computes a change to the internal transform and animates a transition towards it.
      */
@@ -171,8 +181,8 @@ export class Panzoom {
         return ret;
     }
 
-    /** Converts a document-space position to a child-space position (no scaling) */
-    public docToChild(pos: ClientPos): ClientPos {
+    /** Converts a document-space position to a child-space position, without any scaling applied, and returns that. */
+    public docToChild(pos: Readonly<ClientPos>): ClientPos {
         const bounds = this.container.getBoundingClientRect();
             
         return {
@@ -181,7 +191,8 @@ export class Panzoom {
         }
     }
 
-    public childToDoc(pos: ClientPos): ClientPos {
+    /** Converts a child-space position to a document-space position, without any scaling applied, and returns that. */
+    public childToDoc(pos: Readonly<ClientPos>): ClientPos {
         const bounds = this.container.getBoundingClientRect();
         return {
             clientX: pos.clientX + bounds.x + bounds.width / 2 + this.transform.x,
@@ -189,13 +200,11 @@ export class Panzoom {
         }
     }
 
-    /** Gets a new value for {@link z} where `this.transform.zoom * z` is between {@linkcode minZoom} and {@linkcode maxZoom} */
+    /** Finds a new value for {@link z} to clamp `this.transform.zoom * z` between {@linkcode minZoom} and {@linkcode maxZoom} */
     public clampZoomChangeMul(z: number){
         const next = z * this.transform.zoom;
         return Math.min( Math.max( next, this.minZoom ), this.maxZoom ) / this.transform.zoom;
     }
-
-    protected blockMobileScrolling: boolean = false;
 
     /**
      * Constructs a panzoom for the element, with the parent serving as the boundary
@@ -208,12 +217,30 @@ export class Panzoom {
         this.container.addEventListener('dragstart', cancel, {capture: true})
 
         // we need this gross hack to (reliably) prevent iOS from scrolling the page when panzooming
-        document.body.addEventListener('touchmove', this.blockScrollingIfPanning, {passive: false, capture: true})
+        const blockScrollingIfPanning = (e: TouchEvent) => this.blockScrollingIfPanning(e);
+        document.body.addEventListener('touchmove', blockScrollingIfPanning, {passive: false, capture: true})
 
-        // these are the actual panzoom events
-        this.container.addEventListener('mousedown', this.startMousePan);
-        this.container.addEventListener('touchstart', this.startTouchPanzoom, {passive: true})
-        this.container.addEventListener('wheel', this.doWheelZoom, {passive: false})
+        // actual panzoom events
+        const startMousePan = (e: MouseEvent) => this.startMousePan(e);
+        this.container.addEventListener('mousedown', startMousePan);
+
+        const startTouchPanzoom = (e: TouchEvent) => this.startTouchPanzoom(e);
+        this.container.addEventListener('touchstart', startTouchPanzoom, {passive: true})
+
+        const doWheelZoom = (e: WheelEvent) => this.doWheelZoom(e);
+        this.container.addEventListener('wheel', doWheelZoom, {passive: false})
+
+        this.dispose = () => {
+            this.container.removeEventListener('dragstart', cancel, {capture: true});
+    
+            document.body.removeEventListener('touchmove', blockScrollingIfPanning, {capture: true})
+    
+            this.container.removeEventListener('mousedown', startMousePan);
+            this.container.removeEventListener('touchstart', startTouchPanzoom);
+            this.container.removeEventListener('wheel', doWheelZoom);
+    
+            this.transformCallbacks.clear();
+        }
 
         this.kinetic.onVelocityChanged( (vel) => {
             this.editTransformConstrained( (t) => {
@@ -229,32 +256,21 @@ export class Panzoom {
      * 
      * *(If you don't, you'll probably get event listener memory leaks!)*
      */
-    public dispose(){
-        this.container.removeEventListener('selectstart', this.blockSelectingOnContainer, {capture: true});
-        this.container.removeEventListener('dragstart', cancel, {capture: true});
+    public dispose: () => void
 
-        document.body.removeEventListener('touchmove', this.blockScrollingIfPanning, {capture: true})
-
-        this.container.removeEventListener('mousedown', this.startMousePan);
-        this.container.removeEventListener('touchstart', this.startTouchPanzoom);
-        this.container.removeEventListener('wheel', this.doWheelZoom);
-    }
-
-    protected blockScrollingIfPanning = (e: TouchEvent) => {
+    private blockMobileScrolling: boolean = false;
+    private blockScrollingIfPanning (e: TouchEvent){
         if( this.blockMobileScrolling ){
             e.preventDefault();
         }
     }
 
-    protected blockSelectingOnContainer = (e: Event) => {
-        if( e.target === this.container ){
-            e.preventDefault();
-            e.stopPropagation();
-        }
-    }
-
-
-    protected doWheelZoom = (e: WheelEvent) => {
+    /** 
+     * Callback for wheel events.  
+     * 
+     * Can be overridden. 
+     */
+    protected doWheelZoom(e: WheelEvent) {
 
         e.preventDefault();
         e.stopPropagation();
@@ -263,20 +279,9 @@ export class Panzoom {
 
         let oldZoomPoint = this.docToChild(e);
 
-        /*
-            // if we were to scale as-is, where would the mouse end up?
-            // subtract how it moves from the final transformation to keep it in the same place relative to the panzoom child.
-
-            let newZoomPoint = {
-                clientX: oldZoomPoint.clientX * factor,
-                clientY: oldZoomPoint.clientY * factor
-            }
-
-            let err_x = newZoomPoint.clientX - oldZoomPoint.clientX;
-            let err_y = newZoomPoint.clientY - oldZoomPoint.clientY;
-        */
-
-        // through a little algebra, the above becomes the following:
+        // if we were to scale as-is, where would the mouse end up?
+        // subtract how it moves from the final transformation to keep it in the same place relative to the panzoom child.
+        // through a little algebra, the above is equivalent to this:
         let err_x = oldZoomPoint.clientX * (factor - 1);
         let err_y = oldZoomPoint.clientY * (factor - 1);
 
@@ -290,11 +295,18 @@ export class Panzoom {
 
 
 
-    
+    /** The position of the mouse from the last mouse event. */
     protected lastMousePos: ClientPos | undefined;
+
+    /** A `performance.now()` timestamp from the last mouse event. */
     protected lastMouseTime: number | undefined;
 
-    protected startMousePan = (e: MouseEvent) => {
+    /**
+     * Callback for mouse events.
+     * 
+     * Can be overridden.
+     */
+    protected startMousePan(e: MouseEvent) {
 
         if( this.lastMousePos ) return;
 
@@ -340,16 +352,25 @@ export class Panzoom {
         document.addEventListener('mouseup', mousePanEnd)
     }
 
-
-
-
-
+    /** The average touch position from the last touch event */
     protected lastTouchAverage:  ClientPos | undefined;
+
+    /** The number of touches observed in the last touch event */
     protected lastTouchCount:    number | undefined;
+
+    /** The distance between the touch points from the last touch event */
     protected lastTouchDistance: number | undefined;
+
+    /** A `performance.now()` timestamp from the last touch event. */
     protected lastTouchTime:     number | undefined;
 
-    protected startTouchPanzoom = (e: TouchEvent) => {
+
+    /**
+     * Callback for touch events.
+     * 
+     * Can be overridden.
+     */
+    protected startTouchPanzoom(e: TouchEvent) {
 
         if( this.lastTouchAverage ) return;
 
