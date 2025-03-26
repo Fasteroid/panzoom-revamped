@@ -1,7 +1,7 @@
 {
     "name": "panzoom-revamped",
-    "version": "10.0.0-PRE",
-    "description": "Extensible, mobile friendly pan and zoom framework (supports DOM and SVG).",
+    "version": "10.0.0",
+    "description": "Extensible, mobile friendly pan and zoom framework.",
     "main": "index.js",
     "module": "index.js",
     "types": "index.d.ts",
@@ -11,7 +11,6 @@
     },
     "author": "Fasteroid",
     "contributors": [
-        "Andrei Kashcha",
         "Fasteroid"
     ],
     "license": "MIT",

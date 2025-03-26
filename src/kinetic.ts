@@ -14,7 +14,7 @@ export class Kinetic {
     /** Velocities below this will be considered zero */
     public minVelocity: number = 1;
 
-    /** How much velocity to loose per unit time, `ice [0 <=> 1] rubber` */
+    /** How much velocity to lose per unit time, `ice [0 <=> 1] rubber` */
     public friction:    number = 0.05;
 
     /** Velocity smoother, set its `.size` to modify smoothing */
