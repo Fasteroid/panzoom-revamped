@@ -189,12 +189,13 @@ export class Panzoom {
         }
     }
 
+    /** Gets a new value for {@link z} where `this.transform.zoom * z` is between {@linkcode minZoom} and {@linkcode maxZoom} */
     public clampZoomChangeMul(z: number){
         const next = z * this.transform.zoom;
         return Math.min( Math.max( next, this.minZoom ), this.maxZoom ) / this.transform.zoom;
     }
 
-    private blockMobileScrolling: boolean = false;
+    protected blockMobileScrolling: boolean = false;
 
     /**
      * Constructs a panzoom for the element, with the parent serving as the boundary
@@ -205,9 +206,6 @@ export class Panzoom {
 
         // drag events completely break panzooming, so we cancel them
         this.container.addEventListener('dragstart', cancel, {capture: true})
-
-        // text selection acts funky if the user drags over the v̺̩ͯo͎̮ͤ̂͂i͈̘̝͉̽͋ͮd̪͇̟͂̃͐̊̚͟, so we'll prevent that
-        this.container.addEventListener('selectstart', this.blockSelectingOnContainer);
 
         // we need this gross hack to (reliably) prevent iOS from scrolling the page when panzooming
         document.body.addEventListener('touchmove', this.blockScrollingIfPanning, {passive: false, capture: true})
@@ -242,20 +240,6 @@ export class Panzoom {
         this.container.removeEventListener('wheel', this.doWheelZoom);
     }
 
-
-    protected isValidScroll(e: TouchEvent | WheelEvent){
-        const target = e.target as HTMLElement;
-        const style = getComputedStyle(target);
-        const dir = (e instanceof TouchEvent) ? undefined : e.shiftKey; // false = vertical, true = horizontal, undefined = mobile (could be both)
-
-        return (
-            target !== this.container && (
-                ( ['auto', 'scroll'].includes(style.overflowX) && target.scrollWidth > target.offsetWidth   && dir !== SCROLL_DIRECTION.VERTICAL   ) ||
-                ( ['auto', 'scroll'].includes(style.overflowY) && target.scrollHeight > target.offsetHeight && dir !== SCROLL_DIRECTION.HORIZONTAL )
-            )
-        )
-    }
-
     protected blockScrollingIfPanning = (e: TouchEvent) => {
         if( this.blockMobileScrolling ){
             e.preventDefault();
@@ -272,13 +256,8 @@ export class Panzoom {
 
     protected doWheelZoom = (e: WheelEvent) => {
 
-        // if the user is trying to scroll a scrollable element inside the panzoom, defer to that
-        if( this.isValidScroll(e) ) return;
-
-        // otherwise proceed as normal
         e.preventDefault();
         e.stopPropagation();
-
 
         const factor = this.clampZoomChangeMul( e.deltaY < 0 ? this.wheelZoomRate : 1 / this.wheelZoomRate );
 
@@ -312,8 +291,8 @@ export class Panzoom {
 
 
     
-    private lastMousePos: ClientPos | undefined;
-    private lastMouseTime: number | undefined;
+    protected lastMousePos: ClientPos | undefined;
+    protected lastMouseTime: number | undefined;
 
     protected startMousePan = (e: MouseEvent) => {
 
@@ -365,17 +344,14 @@ export class Panzoom {
 
 
 
-    private lastTouchAverage:  ClientPos | undefined;
-    private lastTouchCount:    number | undefined;
-    private lastTouchDistance: number | undefined;
-    private lastTouchTime:     number | undefined;
+    protected lastTouchAverage:  ClientPos | undefined;
+    protected lastTouchCount:    number | undefined;
+    protected lastTouchDistance: number | undefined;
+    protected lastTouchTime:     number | undefined;
 
     protected startTouchPanzoom = (e: TouchEvent) => {
 
         if( this.lastTouchAverage ) return;
-
-        // if the user is trying to scroll a scrollable element inside the panzoom, defer to that
-        if( this.isValidScroll(e) ) return;
 
         this.kinetic.stopKinetics();
 
@@ -405,9 +381,15 @@ export class Panzoom {
                 factor = this.clampZoomChangeMul(factor);
 
                 const dt = thisTouchTime - lastTouchTime;
-                const dx = thisTouchAverage.clientX - lastTouchAverage.clientX;
-                const dy = thisTouchAverage.clientY - lastTouchAverage.clientY;
+                let dx = thisTouchAverage.clientX - lastTouchAverage.clientX;
+                let dy = thisTouchAverage.clientY - lastTouchAverage.clientY;
 
+                let oldZoomPoint = this.docToChild(thisTouchAverage);
+                let err_x = oldZoomPoint.clientX * (factor - 1);
+                let err_y = oldZoomPoint.clientY * (factor - 1);
+
+                dx -= err_x;
+                dy -= err_y;
 
                 this.kinetic.smoothing.push({dx, dy, dt});
 
