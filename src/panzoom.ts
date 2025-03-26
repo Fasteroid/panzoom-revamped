@@ -110,13 +110,13 @@ export class Panzoom {
         const newWidth = childRect.width * factor / 2;
         const newHeight = childRect.height * factor / 2;
 
-
-        const left = x + viewportRect.width / 2 + newWidth;
+        // check bounds once...
+        let left = x + viewportRect.width / 2 + newWidth;
         if( left < minVisible ) {
             x += ( minVisible - left )
         }
 
-        const top = y + viewportRect.height / 2 + newHeight;
+        let top = y + viewportRect.height / 2 + newHeight;
         if( top < minVisible ) {
             y += ( minVisible - top )
         }
@@ -129,6 +129,17 @@ export class Panzoom {
         const bottom = -y + viewportRect.height / 2 + newHeight;
         if( bottom < minVisible ) {
             y += ( bottom - minVisible )
+        }
+
+        // check the first two again; if they're invalid just center it instead
+        left = x + viewportRect.width / 2 + newWidth;
+        if( left < minVisible ) {
+            x = 0;
+        }
+
+        top = y + viewportRect.height / 2 + newHeight;
+        if( top < minVisible ) {
+            y = 0;
         }
 
         this.editTransform((t) => {
