@@ -1,4 +1,4 @@
-# panzoom-revamped
+# @fasteroid/panzoom-revamped
 ###### based on [anvaka's panzoom](https://github.com/anvaka/panzoom)
 
 *Actually* extensible, mobile-friendly pan & zoom framework.<br>

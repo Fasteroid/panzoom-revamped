@@ -1,6 +1,6 @@
 {
-    "name": "panzoom-revamped",
-    "version": "10.0.5",
+    "name": "@fasteroid/panzoom-revamped",
+    "version": "11.0.0",
     "description": "Extensible, mobile friendly pan and zoom framework.",
     "main": "index.js",
     "module": "index.js",
